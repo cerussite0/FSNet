@@ -24,14 +24,14 @@ def create_parser():
     parser.add_argument('--prob_size', type=int, nargs='+', default=[100, 50, 50, 10000],
                         help='Problem size parameters [n, m, p, N] (default: [100, 50, 50, 10000])')
     parser.add_argument('--network', type=str,
-                        help='Type of neural network to use')
+                        help='Type of neural network to use') ###################
     parser.add_argument('--seed', type=int, default=2025, help='Random seed for reproducibility')
     parser.add_argument('--ablation', type=bool, default=False)
 
     # Dataset parameters
     parser.add_argument('--batch_size', type=int, help='Batch size for training')
-    parser.add_argument('--activation', type=int, help='Activation (MLP only)')
-    parser.add_argument('--train_size', type=int, help='Size of train dataset')
+    parser.add_argument('--activation', type=str, help='Activation (MLP only)') #################
+    parser.add_argument('--train_size', type=int, help='Size of train dataset') #################
     parser.add_argument('--val_size', type=int, help='Size of validation dataset')
     parser.add_argument('--test_size', type=int, help='Size of test dataset')
     parser.add_argument('--dropout', type=float, help='Dropout rate for the model')

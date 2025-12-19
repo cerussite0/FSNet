@@ -121,7 +121,13 @@ def create_model(data, method, config):
     dropout = config["dropout"]
 
     if network == 'MLP':
-        activation = config["activation"]
+        activation_map = {
+            "ReLU": nn.ReLU(),
+            "SiLU": nn.SiLU(),
+            "Sigmoid": nn.Sigmoid(),
+            "Tanh": nn.Tanh()
+        }
+        activation = activation_map[config["activation"]]
         if method == "DC3":
             out_dim = data.partial_vars.shape[0]
             model = MLP(data.xdim, hidden_dim, out_dim, num_layers=num_layers, dropout=dropout, activation=activation)
