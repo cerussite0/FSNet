@@ -36,7 +36,7 @@ class Bilinear(nn.Module):
     
 class BilinearMLP(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=1, dropout=0.0):
-        super(MLP, self).__init__()
+        super(BilinearMLP, self).__init__()
         layers = [Bilinear(input_dim, hidden_dim)]
 
         for i in range(num_layers - 1):
