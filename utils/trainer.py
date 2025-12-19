@@ -68,23 +68,29 @@ def load_instance(config):
     with open(filepath, 'rb') as f:
         dataset = pickle.load(f)
         
-# --- NEW: Slice dataset if train_size is specified ---
+    # --- Corrected Slicing Logic ---
     if train_size is not None:
-        # Calculate total samples needed to satisfy train + val + test
         total_samples_needed = train_size + val_size + test_size
         
-        # Assume dataset is a dict of numpy arrays/lists (standard for these problems)
-        # We check the length of the first key to get total available samples
-        first_key = next(iter(dataset))
-        total_available = len(dataset[first_key])
+        # 1. Determine size securely using a known data key
+        # In your generation script, 'X' and 'Y' correspond to examples.
+        if 'X' in dataset:
+            total_available = len(dataset['X'])
+        else:
+            # Fallback or error handling
+            total_available = 0
+            print("Error: Could not find key 'X' to determine dataset size.")
 
         if total_samples_needed < total_available:
-            print(f"Reducing dataset: {total_available} -> {total_samples_needed} samples (Train: {train_size})")
+            print(f"Reducing dataset: {total_available} -> {total_samples_needed} samples")
             
-            # Slice every array in the dictionary
+            # 2. Explicitly define which keys are sliceable data vs static parameters
+            # Or slice only keys that match the total_available count
             for key in dataset:
                 if hasattr(dataset[key], '__len__') and len(dataset[key]) == total_available:
+                    # This ensures we only slice X and Y, not Q or A
                     dataset[key] = dataset[key][:total_samples_needed]
+                    print(f"Sliced {key}")
         else:
             print(f"Requested size ({total_samples_needed}) >= Available ({total_available}). Using full dataset.")
     
@@ -479,78 +485,68 @@ class Trainer:
         
         return self.model
     
-    
+
     def _save_model_and_results(self, train_history, val_history,
-                                test_results_data, training_time):
-        """Saves the model in a .pt file and other results in a .pkl file."""
-        if not self.save_dir:
-            print("Save directory not specified. Skipping saving.")
-            return
-        
-        os.makedirs(self.save_dir, exist_ok=True) # Ensure save directory exists
-        print(f"\nSaving model and results to: {self.save_dir}")
-        
-def _save_model_and_results(self, train_history, val_history,
-                                test_results_data, training_time):
-        """Saves the model in a .pt file and other results in a .pkl file."""
-        if not self.save_dir:
-            print("Save directory not specified. Skipping saving.")
-            return
-        
-        os.makedirs(self.save_dir, exist_ok=True) # Ensure save directory exists
-        print(f"\nSaving model and results to: {self.save_dir}")
+                                    test_results_data, training_time):
+            """Saves the model in a .pt file and other results in a .pkl file."""
+            if not self.save_dir:
+                print("Save directory not specified. Skipping saving.")
+                return
+            
+            os.makedirs(self.save_dir, exist_ok=True) # Ensure save directory exists
+            print(f"\nSaving model and results to: {self.save_dir}")
 
-        # --- Construct the Filename ---
-        # Get parameters safely from config
-        seed = self.config.get('seed', 'N_A')
-        network = self.config.get('network', 'UnknownNet')
-        train_size = self.config.get('train_size', 'All') 
-        activation = self.config.get('activation', 'N_A') 
-        
-        # Create the base filename string
-        base_filename = f"results_net{network}_size{train_size}_seed{seed}_activation{activation}"
+            # --- Construct the Filename ---
+            # Get parameters safely from config
+            seed = self.config.get('seed', 'N_A')
+            network = self.config.get('network', 'UnknownNet')
+            train_size = self.config.get('train_size', 'All') 
+            activation = self.config.get('activation', 'N_A') 
+            
+            # Create the base filename string
+            base_filename = f"results_net{network}_size{train_size}_seed{seed}_activation{activation}"
 
-        # --- 1. Save Model File (.pt) ---
-        model_save_content = {
-            'model_state_dict': self.model.state_dict(),
-            'model_architecture_str': str(self.model), 
-            'config': self.config, 
-        }
-        
-        model_filename = f"{base_filename}.pt"
-        model_filepath = os.path.join(self.save_dir, model_filename)
-        try:
-            torch.save(model_save_content, model_filepath)
-            print(f"✓ Model saved: {model_filepath}")
-        except Exception as e:
-            print(f"✗ Error saving model: {e}")
+            # --- 1. Save Model File (.pt) ---
+            model_save_content = {
+                'model_state_dict': self.model.state_dict(),
+                'model_architecture_str': str(self.model), 
+                'config': self.config, 
+            }
+            
+            model_filename = f"{base_filename}.pt"
+            model_filepath = os.path.join(self.save_dir, model_filename)
+            try:
+                torch.save(model_save_content, model_filepath)
+                print(f"✓ Model saved: {model_filepath}")
+            except Exception as e:
+                print(f"✗ Error saving model: {e}")
 
-        # --- 2. Save Results File (.pkl) ---
-        results_save_content = {
-            'seed': seed,
-            'method': self.method,
-            'config': self.config, 
-            'timestamp': time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            'training_time_seconds': training_time,
-            'train_history': train_history,
-            'val_history': val_history,
-            'test_results': test_results_data, 
-            'pytorch_version': torch.__version__,
-            'device_used': str(DEVICE)
-        }
+            # --- 2. Save Results File (.pkl) ---
+            results_save_content = {
+                'seed': seed,
+                'method': self.method,
+                'config': self.config, 
+                'timestamp': time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                'training_time_seconds': training_time,
+                'train_history': train_history,
+                'val_history': val_history,
+                'test_results': test_results_data, 
+                'pytorch_version': torch.__version__,
+                'device_used': str(DEVICE)
+            }
 
-        results_pkl_filename = f"{base_filename}.pkl"
-        results_filepath = os.path.join(self.save_dir, results_pkl_filename)
-        try:
-            with open(results_filepath, 'wb') as f:
-                pickle.dump(results_save_content, f)
-            print(f"✓ Detailed results saved: {results_filepath}")
-        except Exception as e:
-            print(f"✗ Error saving results: {e}")
+            results_pkl_filename = f"{base_filename}.pkl"
+            results_filepath = os.path.join(self.save_dir, results_pkl_filename)
+            try:
+                with open(results_filepath, 'wb') as f:
+                    pickle.dump(results_save_content, f)
+                print(f"✓ Detailed results saved: {results_filepath}")
+            except Exception as e:
+                print(f"✗ Error saving results: {e}")
 
-        print(f"\nFiles saved (or attempted):")
-        print(f"  - {model_filename}")
-        print(f"  - {results_pkl_filename}")
+            print(f"\nFiles saved (or attempted):")
+            print(f"  - {model_filename}")
+            print(f"  - {results_pkl_filename}")
 
 
 
