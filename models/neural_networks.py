@@ -4,12 +4,12 @@ from torch import nn
 # Multi-Layer Perceptron (MLP) with adjustable dropout and layer count  
 
 class MLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=1, dropout=0.0):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=1, dropout=0.0, activation=nn.SiLU()):
         super(MLP, self).__init__()
-        layers = [nn.Linear(input_dim, hidden_dim), nn.SiLU()]
+        layers = [nn.Linear(input_dim, hidden_dim), activation]
 
         for i in range(num_layers - 1):
-            layers += [nn.Linear(hidden_dim, hidden_dim), nn.SiLU()]
+            layers += [nn.Linear(hidden_dim, hidden_dim), activation]
             if dropout > 0:
                 layers.append(nn.Dropout(p=dropout/(i+1))) # Adjust dropout rate for each layer
         
@@ -19,3 +19,34 @@ class MLP(nn.Module):
         # initialize weights if necessary               
     def forward(self, x):
         return self.mlp(x)
+    
+
+
+class Bilinear(nn.Module):
+    def __init__(self, in_features, out_features, bias=True):
+        super().__init__()
+        self.l1 = nn.Linear(in_features, out_features, bias=bias)
+        self.l2 = nn.Linear(in_features, out_features, bias=bias)
+    
+    def forward(self, x):
+        y1 = self.l1(x)
+        y2 = self.l2(x)
+        return y1 * y2
+    
+class BilinearMLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=1, dropout=0.0):
+        super(MLP, self).__init__()
+        layers = [Bilinear(input_dim, hidden_dim)]
+
+        for i in range(num_layers - 1):
+            layers += [Bilinear(hidden_dim, hidden_dim)]
+            if dropout > 0:
+                layers.append(nn.Dropout(p=dropout/(i+1))) # Adjust dropout rate for each layer
+
+        layers.append(Bilinear(hidden_dim, output_dim))
+        layers.append(nn.Sigmoid())
+        self.mlp = nn.Sequential(*layers)
+        # initialize weights if necessary
+    def forward(self, x):
+        return self.mlp(x)
+    

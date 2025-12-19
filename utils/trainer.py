@@ -13,7 +13,7 @@ import json
 
 from utils.optimization_utils import *
 from utils.lbfgs import nondiff_lbfgs_solve, hybrid_lbfgs_solve
-from models.neural_networks import MLP
+from models.neural_networks import MLP, BilinearMLP
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 torch.set_default_dtype(torch.float64)
@@ -30,6 +30,7 @@ def load_instance(config):
     prob_type = config['prob_type']
     prob_name = config['prob_name']
     prob_size = config['prob_size']
+    train_size = config.get('train_size', None)
 
     # Map problem types to their corresponding problem classes
     if prob_type == 'convex':
@@ -66,6 +67,26 @@ def load_instance(config):
     # Load dataset
     with open(filepath, 'rb') as f:
         dataset = pickle.load(f)
+        
+# --- NEW: Slice dataset if train_size is specified ---
+    if train_size is not None:
+        # Calculate total samples needed to satisfy train + val + test
+        total_samples_needed = train_size + val_size + test_size
+        
+        # Assume dataset is a dict of numpy arrays/lists (standard for these problems)
+        # We check the length of the first key to get total available samples
+        first_key = next(iter(dataset))
+        total_available = len(dataset[first_key])
+
+        if total_samples_needed < total_available:
+            print(f"Reducing dataset: {total_available} -> {total_samples_needed} samples (Train: {train_size})")
+            
+            # Slice every array in the dictionary
+            for key in dataset:
+                if hasattr(dataset[key], '__len__') and len(dataset[key]) == total_available:
+                    dataset[key] = dataset[key][:total_samples_needed]
+        else:
+            print(f"Requested size ({total_samples_needed}) >= Available ({total_available}). Using full dataset.")
     
     # Create problem instance using the appropriate class
     data = problem_names[prob_name](dataset, val_size, test_size, seed)
@@ -100,11 +121,18 @@ def create_model(data, method, config):
     dropout = config["dropout"]
 
     if network == 'MLP':
+        activation = config["activation"]
         if method == "DC3":
             out_dim = data.partial_vars.shape[0]
-            model = MLP(data.xdim, hidden_dim, out_dim, num_layers=num_layers, dropout=dropout)
+            model = MLP(data.xdim, hidden_dim, out_dim, num_layers=num_layers, dropout=dropout, activation=activation)
         else:
-            model = MLP(data.xdim, hidden_dim, data.ydim, num_layers=num_layers, dropout=dropout)
+            model = MLP(data.xdim, hidden_dim, data.ydim, num_layers=num_layers, dropout=dropout, activation=activation)
+    elif network == 'BilinearMLP':
+        if method == "DC3":
+            out_dim = data.partial_vars.shape[0]
+            model = BilinearMLP(data.xdim, hidden_dim, out_dim, num_layers=num_layers, dropout=dropout)
+        else:
+            model = BilinearMLP(data.xdim, hidden_dim, data.ydim, num_layers=num_layers, dropout=dropout)
     else:
         raise ValueError(f"Unknown model type: {model}")
     return model.to(DEVICE)
