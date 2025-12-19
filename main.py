@@ -73,6 +73,10 @@ def create_parser():
     # Override dataset parameters
     if args.batch_size:
         config['batch_size'] = args.batch_size
+    if args.activation:
+        config['activation'] = args.activation
+    if args.train_size:
+        config['train_size'] = args.train_size
     if args.val_size:
         config['val_size'] = args.val_size
     if args.test_size:
