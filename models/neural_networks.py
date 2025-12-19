@@ -25,8 +25,8 @@ class MLP(nn.Module):
 class Bilinear(nn.Module):
     def __init__(self, in_features, out_features, bias=True):
         super().__init__()
-        self.l1 = nn.Linear(in_features/2, out_features, bias=bias)
-        self.l2 = nn.Linear(in_features/2, out_features, bias=bias)
+        self.l1 = nn.Linear(in_features//2, out_features, bias=bias)
+        self.l2 = nn.Linear(in_features//2, out_features, bias=bias)
     
     def forward(self, x):
         x1, x2 = x.chunk(2, dim=-1)
